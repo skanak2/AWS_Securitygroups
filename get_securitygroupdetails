@@ -1,0 +1,126 @@
+package aws_manage;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.autoscaling.model.LaunchConfiguration;
+import com.amazonaws.services.ec2.AmazonEC2Client;
+import com.amazonaws.services.ec2.model.AvailabilityZone;
+import com.amazonaws.services.ec2.model.DescribeAvailabilityZonesResult;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesResult;
+import com.amazonaws.services.ec2.model.DescribeSecurityGroupsRequest;
+import com.amazonaws.services.ec2.model.DescribeSecurityGroupsResult;
+import com.amazonaws.services.ec2.model.GroupIdentifier;
+import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.IpPermission;
+import com.amazonaws.services.ec2.model.Reservation;
+import com.amazonaws.services.ec2.model.SecurityGroup;
+import com.amazonaws.services.elasticache.model.Endpoint;
+
+public class SecurityGroupRank {
+
+	static AmazonEC2Client globalClient;
+	//public CreateLaunchConfigurationRequest withClassicLinkVPCId;
+	public static LaunchConfiguration withClassicLinkVPCId;
+	public static Endpoint listn;
+	public static IpPermission dp; 
+
+
+	public static void  Ec2InstanceAttributes(){}
+	public static void main(String[] args) {
+		//AmazonEC2Client ec2= new AmazonEC2Client();
+		String accessKey = "put your accesskey";
+		String secretKey = "put your secretkey";
+		AWSCredentials credentials = new BasicAWSCredentials(accessKey, secretKey);
+		AmazonEC2Client client = new AmazonEC2Client(credentials);
+		//client.setEndpoint("ec2.northeast-1.amazonaws.com");
+		globalClient = client;
+		DescribeAvailabilityZonesResult zones = client.describeAvailabilityZones();
+		
+		
+		SecurityGroupRank secgrpRnkObject = new SecurityGroupRank();
+		//Adding Instances
+		List instances= secgrpRnkObject.getInstancesListFromZone(client, zones);//list all the instances
+
+		HashMap allGroupMap = secgrpRnkObject.getGlobalSecurityGroupMap(client);
+		
+		
+		
+		
+		
+		//for all instances
+		for (Object item : instances) {
+			Instance instance = (Instance)item;
+			List<GroupIdentifier> instanceGroupList = instance.getSecurityGroups();
+			System.out.println("SEC GROUP:"+instance.getSecurityGroups());//get all the security names
+			secgrpRnkObject.groupDetails(instanceGroupList, allGroupMap);
+		}
+
+
+
+
+
+	}
+
+
+	public void groupDetails(List<GroupIdentifier> groupIdentifierList, HashMap<String, SecurityGroup> AllSecurityGroups){
+
+		for (GroupIdentifier groupIdentifier : groupIdentifierList) {
+			System.out.println();
+			SecurityGroup securityGroup = AllSecurityGroups.get(groupIdentifier.getGroupId());//getting group ids
+			List<IpPermission> ipPermissionList = securityGroup.getIpPermissions();
+			
+			for( IpPermission ip: ipPermissionList )
+			{	
+				
+				{
+					System.out.println("\nIpRange:::"+ip.getIpRanges());//get ip
+					System.out.println("\nProtocol is:::"+ip.getIpProtocol());//all protocols on the specific instance
+					System.out.println("\nFromPort:::"+ip.getFromPort());//from port
+					System.out.println("\nToPort:::"+ip.getToPort());
+					//you can add up many other objects which are necessary for you to get details of
+									}
+				
+
+			}
+
+		}
+
+	}
+	
+	public List getInstancesListFromZone(AmazonEC2Client client, DescribeAvailabilityZonesResult zones){
+		List instances = new ArrayList();
+		for (AvailabilityZone zone : zones.getAvailabilityZones()){
+
+			DescribeInstancesRequest req = new DescribeInstancesRequest();
+			DescribeInstancesResult describeInstancesRequest = client.describeInstances(req);
+			List<Reservation> reservations = describeInstancesRequest.getReservations();
+			for (Reservation reservation : reservations) {
+				//System.out.println("Instance Added:"+reservation.getInstances());
+				instances.addAll(reservation.getInstances());
+			}
+		}
+		return instances;
+		
+	}
+	
+	public HashMap getGlobalSecurityGroupMap(AmazonEC2Client client){
+		DescribeSecurityGroupsRequest r1= new  DescribeSecurityGroupsRequest();
+		DescribeSecurityGroupsResult describeSecurityGroupsResult=client.describeSecurityGroups(r1);
+		HashMap<String, SecurityGroup> securityGroupMap = new HashMap<String, SecurityGroup>();
+		List<SecurityGroup> AllGroupsList=describeSecurityGroupsResult.getSecurityGroups();
+		for(SecurityGroup securityGroup : AllGroupsList)
+		{
+			securityGroupMap.put(securityGroup.getGroupId(), securityGroup);
+		}
+		return securityGroupMap;
+	}
+}
+
+
+
